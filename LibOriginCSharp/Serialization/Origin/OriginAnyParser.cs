@@ -2028,31 +2028,18 @@ namespace Altaxo.Serialization.Origin
         }
         else if (sec_name == "Y2" || sec_name == "X2" || sec_name == "Y1" || sec_name == "X1")
         {
-          var idxCoordinate = sec_name switch
-          {
-            "Y2" => 0,
-            "X2" => 1,
-            "Y1" => 2,
-            "X1" => 3,
-            _ => throw new NotImplementedException()
-          };
+          // these parameters are coded as Ascii strings
+          var valueText = _encoding.GetString(andt1, 0, andt1.Length).TrimEnd('\0');
+          double value = double.Parse(valueText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
 
-          if (andt1.Length >= sizeof(double))
+          switch (sec_name)
           {
-            sheet.Coordinates[idxCoordinate] = BitConverter.ToDouble(andt1, cursor); cursor += sizeof(Double);
+            case "X1": sheet.X1 = value; break;
+            case "X2": sheet.X2 = value; break;
+            case "Y1": sheet.Y1 = value; break;
+            case "Y2": sheet.Y2 = value; break;
           }
-          else if (andt1.Length >= sizeof(float))
-          {
-            sheet.Coordinates[idxCoordinate] = BitConverter.ToSingle(andt1, cursor); cursor += sizeof(Single);
-          }
-          else if (andt1.Length >= sizeof(Int16))
-          {
-            sheet.Coordinates[idxCoordinate] = BitConverter.ToInt16(andt1, cursor); cursor += sizeof(Int16);
-          }
-          else
-          {
-            throw new NotImplementedException($"Annotation named {sec_name} has {andt1.Length} of data");
-          }
+
         }
         else if (sec_name == "COLORMAP")
         {
@@ -4125,7 +4112,7 @@ namespace Altaxo.Serialization.Origin
         {
           if (b < 0)
           {
-            throw new System.IO.EndOfStreamException();
+            throw new System.IO.EndOfStreamException($"Unexpected end of stream, file: {((fs is FileStream f) ? f.Name : fs.ToString())}");
           }
           if (b == 0 && !doUnreadDelimiter)
           {
@@ -4133,9 +4120,9 @@ namespace Altaxo.Serialization.Origin
             if (b != '\n')
             {
               if (b < 0)
-                throw new System.IO.EndOfStreamException();
+                throw new System.IO.EndOfStreamException($"Unexpected end of stream, file: {((fs is FileStream f) ? f.Name : fs.ToString())}");
               else
-                throw new InvalidDataException("After a \\0 string delimiter a 0x0A (\\n) char is expected");
+                throw new InvalidDataException($"After a \\0 string delimiter a 0x0A (\\n) char is expected, position 0x{fs.Position:X}, file: {((fs is FileStream f) ? f.Name : fs.ToString())}");
             }
           }
 

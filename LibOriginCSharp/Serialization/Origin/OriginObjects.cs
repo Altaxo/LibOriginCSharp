@@ -545,7 +545,18 @@ namespace Altaxo.Serialization.Origin
     public ColorMap ColorMap;
     public List<double> Data = [];
     public List<double> ImaginaryData = [];
-    public List<double> Coordinates = [];
+
+    /// <summary>The x-value that corresponds to the first column of the matrix.</summary>
+    public double X1 { get; set; }
+
+    /// <summary>The x-value that corresponds to the last column of the matrix.</summary>
+    public double X2 { get; set; }
+
+    /// <summary>The y-value that corresponds to the first row of the matrix.</summary>
+    public double Y1 { get; set; }
+
+    /// <summary>The y-value that corresponds to the last row of the matrix.</summary>
+    public double Y2 { get; set; }
 
     public MatrixSheet(string name = "", int index = 0)
     {
@@ -560,7 +571,8 @@ namespace Altaxo.Serialization.Origin
       Index = index;
       View = ViewType.DataView;
       ColorMap = new ColorMap();
-      Coordinates = [10.0, 10.0, 1.0, 1.0];
+      X1 = Y1 = 1;
+      X2 = Y2 = 10;
     }
 
     public double this[int r, int c]
