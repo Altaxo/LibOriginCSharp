@@ -25,6 +25,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Xunit;
 
 namespace Altaxo.Serialization.Origin.Tests
@@ -51,8 +52,12 @@ namespace Altaxo.Serialization.Origin.Tests
 
     /// <summary>
     /// Tests if .opj files in additional folders (not included in the test folder) are readable.
-    /// This test expect that there is a file 'AdditionalFoldersWithOpjFiles.txt' in the test file folder.
-    /// This text file should contain additional folders (each folder name on a separate line) which contains .opj files.
+    /// This test expect that there is a file 'AdditionalFoldersWithOpjFiles.txt' in the test file folder,
+    /// which you have to create (this file is not tracked in Git).
+    /// This text file should contain additional folder names (each folder name located on a separate line) which contains .opj files.
+    /// The folders are searched then recursively for .opj files to test.
+    /// The test will not fail if there is no such 'AdditionalFoldersWithOpjFiles.txt' file,
+    /// or if the additional folders do not contain .opj files.
     /// </summary>
     [Fact]
     public void Test_AdditionalFilesReadable()
@@ -84,7 +89,16 @@ namespace Altaxo.Serialization.Origin.Tests
       void TestFile(FileInfo file)
       {
         using var str = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var version = OriginAnyParser.ReadFileVersion(str);
+        (int FileVersion, int NewFileVersion, int BuildVersion, bool IsOpjuFile, string? Error) version;
+        try
+        {
+          version = OriginAnyParser.ReadFileVersion(str);
+        }
+        catch (Exception ex)
+        {
+          listOfCorruptedFiles.Add((file, ex));
+          return;
+        }
         if (version.FileVersion >= 400)
         {
           try
@@ -127,11 +141,35 @@ namespace Altaxo.Serialization.Origin.Tests
           }
         }
       }
-      if (listOfFailedFiles.Count > 0)
+      if (listOfFailedFiles.Count > 0 || listOfCorruptedFiles.Count > 0)
       {
         // Set a break point here to inspect the list of failed files
       }
-      Assert.Empty(listOfFailedFiles);
+
+      if (listOfCorruptedFiles.Count > 0 || listOfFailedFiles.Count > 0)
+      {
+        var stb = new StringBuilder();
+        if (listOfCorruptedFiles.Count > 0)
+        {
+          stb.AppendLine("List of corrupted files:");
+          foreach (var file in listOfCorruptedFiles)
+          {
+            stb.AppendLine($"\"{file.fileInfo.FullName}\"\t{file.exception.Message}");
+          }
+        }
+
+        if (listOfFailedFiles.Count > 0)
+        {
+
+          stb.AppendLine("List of failed files:");
+          foreach (var file in listOfFailedFiles)
+          {
+            stb.AppendLine($"\"{file.fileInfo.FullName}\"\t{file.exception.Message}");
+          }
+        }
+        Assert.Fail(stb.ToString());
+      }
+
     }
 
     [Fact]
@@ -181,6 +219,12 @@ namespace Altaxo.Serialization.Origin.Tests
       Assert.Equal(10, sheet[1, 0]);
       Assert.Equal(20, sheet[2, 0]);
       Assert.Equal(30, sheet[3, 0]);
+
+      // test the coordinates
+      Assert.Equal(5329, sheet.X1);
+      Assert.Equal(9999, sheet.X2);
+      Assert.Equal(731, sheet.Y1);
+      Assert.Equal(999, sheet.Y2);
     }
 
     [Fact]
