@@ -296,10 +296,10 @@ namespace Altaxo.Serialization.Origin
     public bool IsLabelVisible;
   };
 
-  public struct ColorMap
+  public class ColorMap
   {
     public bool IsFillEnabled;
-    public ColorMapVector Levels;
+    public ColorMapVector Levels = [];
   };
 
   public enum WindowState
@@ -978,19 +978,39 @@ namespace Altaxo.Serialization.Origin
     public bool ConnectSymbols;
 
     //pie
-    public PieProperties Pie;
+    public PieProperties? Pie
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
 
     //vector
-    public VectorProperties Vector;
+    public VectorProperties? Vector
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
 
     //text
-    public TextProperties Text;
+    public TextProperties? Text
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
 
     //surface
-    public SurfaceProperties Surface;
+    public SurfaceProperties? Surface
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
 
     //contour
-    public ColorMap ColorMap;
+    public ColorMap? ColorMap
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
   }
 
   public class GraphAxisBreak

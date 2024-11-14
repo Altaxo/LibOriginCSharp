@@ -127,16 +127,17 @@ namespace Altaxo.Serialization.Origin.Tests
           line = line.Trim();
           if (!string.IsNullOrEmpty(line))
           {
+            var file = new FileInfo(line.Trim().Trim('"'));
+            if (file.Exists)
+            {
+              TestFile(file);
+              continue;
+            }
             var folder = new DirectoryInfo(line);
             if (folder.Exists)
             {
               TestFolder(folder);
               continue;
-            }
-            var file = new FileInfo(line);
-            if (file.Exists)
-            {
-              TestFile(file);
             }
           }
         }

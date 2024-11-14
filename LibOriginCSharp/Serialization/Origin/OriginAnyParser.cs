@@ -27,6 +27,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -45,6 +46,10 @@ namespace Altaxo.Serialization.Origin
     public List<Graph> Graphs { get; set; } = [];
     public List<Note> Notes { get; set; } = [];
     public List<(string Name, double Value)> Parameters { get; } = [];
+
+    /// <summary>Gets the attachments. Consist of name/value pairs, but the name often seems to be empty.</summary>
+    public List<(string Name, string Value)> Attachments { get; } = [];
+
     public ProjectNode ProjectTree { get; set; } = new();
     public string ResultsLog { get; set; }
     public int WindowsCount { get; set; }
@@ -303,35 +308,6 @@ namespace Altaxo.Serialization.Origin
         return blob;
       }
       return [];
-    }
-
-    public string ReadObjectAsString(int size)
-    {
-      char c;
-      // read a size-byte blob of data followed by '\n'
-      if (size > 0)
-      {
-        // get a string large enough to hold the result, initialize it to all 0's
-        byte[] blob = new byte[size];
-        // read data into that string
-        // cannot use '>>' operator because iendianfstream truncates it at first '\0'
-        _file.ReadExactly(blob, 0, (int)size);
-        // read the '\n'
-        c = (char)_file.ReadByte();
-        if (c < 0)
-        {
-          throw new EndOfStreamException();
-        }
-        if (c != '\n')
-        {
-          _curpos = _file.Position;
-          LogPrint($"Wrong delimiter {c} at {_curpos} [0x{_curpos:X}]");
-          _parseError = 4;
-          return string.Empty;
-        }
-        return _encoding.GetString(blob);
-      }
-      return string.Empty;
     }
 
     /// <summary>
@@ -1272,7 +1248,6 @@ namespace Altaxo.Serialization.Origin
       att_1st_empty = BitConverter.ToInt32(_buffer16, 0);
       _file.Seek(-4, SeekOrigin.Current);
 
-      byte[] att_header;
       if (att_1st_empty == 8)
       {
         // first group
@@ -1284,12 +1259,18 @@ namespace Altaxo.Serialization.Origin
         var att_list1 = ReadObjectAsByteArray(att_list1_size);
         LogPrint($"First attachment group at {_curpos} [0x{_curpos:X}]");
 
-        int att_mark = 0, number_of_atts = 0, iattno = 0, att_data_size = 0;
-        att_mark = BitConverter.ToInt32(att_list1, 0); // should be 4096
-        number_of_atts = BitConverter.ToInt32(att_list1, 0x04);
+        var att_mark = BitConverter.ToInt32(att_list1, 0); // should be 4096
+        var number_of_atts = BitConverter.ToInt32(att_list1, sizeof(Int32));
         LogPrint($" with {number_of_atts} attachments.");
 
-        for (uint i = 0; i < number_of_atts; i++)
+        // if the number of attachments is null, then it seems that we have to iterate through each header
+        // or is it a matter of versions?
+        if (number_of_atts == 0)
+        {
+          number_of_atts = int.MaxValue;
+        }
+
+        for (int i = 0; i < number_of_atts && (_file.Position + 12 <= _d_file_size); i++)
         {
           /* Header is a group of 7 integers followed by \n
           1st  attachment mark (4096: 0x00 0x10 0x00 0x00)
@@ -1298,20 +1279,22 @@ namespace Altaxo.Serialization.Origin
           4th .. 7th ???
           */
           // get header
-          att_header = ReadObjectAsByteArray(7 * 4);
-          att_mark = BitConverter.ToInt32(att_header, 0); // should be 4096
-          iattno = BitConverter.ToInt32(att_header, 0x04);
-          att_data_size = BitConverter.ToInt32(att_header, 0x08);
+          _file.ReadExactly(_buffer16, 0, 12);
+          att_mark = BitConverter.ToInt32(_buffer16, 0); // should be 4096
+          if (att_mark != 0x1000) // if this is not a first group attachment, go to the second group
+          {
+            _file.Seek(-12, SeekOrigin.Current); // make the reading undone
+            break;
+          }
+          var iattno = BitConverter.ToInt32(_buffer16, 0x04);
+          var att_data_size = BitConverter.ToInt32(_buffer16, 0x08);
           _curpos = _file.Position;
           LogPrint($"Attachment no {i} ({iattno}) at {_curpos} [0x{_curpos:X}], size {att_data_size}");
+          var att_name = ReadObjectAsString(16); // the content of the remaining 16 bytes + 0x0A is unclear
 
           // get data
-          string att_data = ReadObjectAsString(att_data_size);
-          // even if att_data_size is zero, we get a '\n' mark
-          if (att_data_size == 0)
-          {
-            _file.Seek(1, SeekOrigin.Current);
-          }
+          string att_data = ReadObjectAsString(att_data_size, readNewlineDelimiterInAnyCase: true); // even if att_data_size is zero, we get a '\n' mark
+          Attachments.Add((iattno.ToString(CultureInfo.InvariantCulture), att_data));
         }
       }
       else
@@ -1329,46 +1312,30 @@ namespace Altaxo.Serialization.Origin
         3rd size of data */
 
       // get header
-      while (true)
+      while (_file.Position + 12 <= _d_file_size)
       {
-        // check for eof
-        if ((_d_file_size == _file.Position) || (_file.Position >= _d_file_size))
-        {
-          break;
-        }
-        // cannot use ReadObjectAsString: there is no '\n' at end
-        byte[] headerBytes = new byte[12];
-        _file.ReadExactly(headerBytes, 0, 12);
-
-        if (headerBytes.Length != 12)
-        {
-          break;
-        }
+        _file.ReadExactly(_buffer16, 0, 12); // cannot use ReadObjectAsString here be there is no '\n' at end
         // get header size, type and data size
-        int att_header_size = 0, att_type = 0, att_size = 0;
-        att_header_size = BitConverter.ToInt32(headerBytes, 0);
-        att_type = BitConverter.ToInt32(headerBytes, 0x04);
-        att_size = BitConverter.ToInt32(headerBytes, 0x08);
+        var att_header_size = BitConverter.ToInt32(_buffer16, 0x00);
+        var att_type = BitConverter.ToInt32(_buffer16, 0x04);
+        var att_size = BitConverter.ToInt32(_buffer16, 0x08);
 
-        // get name and data
-        int name_size = att_header_size - 3 * 4;
-        string att_name = new string('\0', (int)name_size);
-        byte[] nameBytes = new byte[name_size];
-        _file.ReadExactly(nameBytes, 0, (int)name_size);
-        att_name = Encoding.UTF8.GetString(nameBytes);
+        // get name and data, note that the name is not limited with a newline!
+        var buffer = new byte[att_header_size - 12];
+        _file.ReadExactly(buffer, 0, buffer.Length);
+        var att_name = _encoding.GetString(buffer).TrimEnd('\0');
         _curpos = _file.Position;
-        string att_data = new string('\0', (int)att_size);
-        byte[] dataBytes = new byte[att_size];
-        _file.ReadExactly(dataBytes, 0, (int)att_size);
-        att_data = Encoding.UTF8.GetString(dataBytes);
-        LogPrint($"attachment at {_curpos} [0x{_curpos:X}], type 0x{att_type:X}, size {att_size} [0x{att_size:X}]: {att_name}");
-      }
 
+        byte[] dataBytes = new byte[att_size];
+        _file.ReadExactly(dataBytes, 0, att_size);
+        var att_data = _encoding.GetString(dataBytes);
+        LogPrint($"attachment at {_curpos} [0x{_curpos:X}], type 0x{att_type:X}, size {att_size} [0x{att_size:X}]: {att_name}");
+        Attachments.Add((att_name, att_data));
+      }
     }
 
     public bool GetColumnInfoAndData(byte[] colHeader, int colHeaderSize, byte[] colData, int colDataSize)
     {
-
       short dataType;
       byte dataTypeU;
       byte valueSize;
@@ -3714,13 +3681,20 @@ namespace Altaxo.Serialization.Origin
       {
         ProjectNode childNode;
         var obj = FindWindowObjectByIndex(fileObjectId);
-        childNode = currentFolder.AppendChild(
-          new ProjectNode(obj.Item2.Name, obj.Item1)
-          {
-            CreationDate = obj.Item2.CreationDate,
-            ModificationDate = obj.Item2.ModificationDate,
-          }
-          );
+        if (obj.window is not null)
+        {
+          childNode = currentFolder.AppendChild(
+            new ProjectNode(obj.Item2.Name, obj.Item1)
+            {
+              CreationDate = obj.Item2.CreationDate,
+              ModificationDate = obj.Item2.ModificationDate,
+            }
+            );
+        }
+        else
+        {
+          LogPrint($"GetProjectLeafProperties: Window with id = {fileObjectId} was not found!");
+        }
       }
     }
 
@@ -4005,7 +3979,7 @@ namespace Altaxo.Serialization.Origin
       return ((ProjectNodeType)0, null);
     }
 
-    public (ProjectNodeType, Origin.Window) FindWindowObjectByIndex(int index)
+    public (ProjectNodeType nodeType, Origin.Window? window) FindWindowObjectByIndex(int index)
     {
       for (int i = 0; i < SpreadSheets.Count; i++)
       {
@@ -4092,6 +4066,47 @@ namespace Altaxo.Serialization.Origin
         }
       }
       return -1;
+    }
+
+
+    /// <summary>
+    /// Reads a fixed length string. If the size is given as greater than 0, then also the delimiting newline char (0x0A) is read.
+    /// Note that if a size of 0 is provided, then the delimiting newline character is not read!
+    /// </summary>
+    /// <param name="size">The size of the string.</param>
+    /// <param name="readNewlineDelimiterInAnyCase">If true, the newline delimiter is also read if the size argument is 0.</param>
+    /// <returns></returns>
+    public string ReadObjectAsString(int size, bool readNewlineDelimiterInAnyCase = false)
+    {
+      // read a size-byte blob of data followed by '\n'
+      var result = string.Empty;
+      if (size > 0)
+      {
+        byte[] buffer = new byte[size];
+        _file.ReadExactly(buffer, 0, size);
+        result = _encoding.GetString(buffer).TrimEnd('\0');
+      }
+
+      if (size > 0 || readNewlineDelimiterInAnyCase)
+      {
+        // read the newline 0x0A character
+        var c = _file.ReadByte();
+        if (c != 0x0A)
+        {
+          if (c < 0)
+          {
+            LogPrint($"Unexpected end of stream when trying to read the delimiting newline character of a string object");
+            throw new System.IO.EndOfStreamException($"Unexpected end of stream, file: {((_file is FileStream f) ? f.Name : _file.ToString())}");
+          }
+          else
+          {
+            _curpos = _file.Position;
+            LogPrint($"Wrong delimiter 0x{c:X2} at {_file.Position} [0x{_curpos:X}]");
+            throw new InvalidDataException($"After a string the delimiter a 0x0A (\\n) char is expected (but is was 0x{c:X2}), position 0x{_file.Position:X}, file: {((_file is FileStream f) ? f.Name : _file.ToString())}");
+          }
+        }
+      }
+      return result;
     }
 
     /// <summary>

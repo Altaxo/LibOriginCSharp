@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <RootNamespace>Altaxo</RootNamespace>
-    <TargetFrameworks>net8.0;net48</TargetFrameworks>
-    <LangVersion>latest</LangVersion>
+    <TargetFrameworks>net9.0;net48</TargetFrameworks>
+    <LangVersion>preview</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
