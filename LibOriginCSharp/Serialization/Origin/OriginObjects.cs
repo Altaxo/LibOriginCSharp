@@ -36,6 +36,24 @@ using Altaxo.Collections;
 
 namespace Altaxo.Serialization.Origin
 {
+  public enum ValueBinaryType
+  {
+    /// <summary>Double number (8 byte).</summary>
+    Double = 0x6001,
+    /// <summary>Single number (4 byte).</summary>
+    Single = 0x6003,
+    /// <summary>Complex double number (16 byte).</summary>
+    Complex = 0x6201, // 2xdouble
+    /// <summary>Integer (4 byte). Whether it is signed or unsigned is decided by another variable.</summary>
+    Int32 = 0x6801,
+    /// <summary>Integer number (2 byte). Whether it is signed or unsigned is decided by another variable.</summary>
+    Short = 0x6803,
+    /// <summary>Integer number (1 byte). Whether it is signed or unsigned is decided by another variable.</summary>
+    Byte = 0x6821,
+  };
+
+
+
   public enum ValueType
   {
     Numeric = 0,
@@ -49,6 +67,8 @@ namespace Altaxo.Serialization.Origin
     TextNumeric = 9,
     Categorical = 10
   };
+
+
 
   // Numeric Format:
   // 1000 | 1E3 | 1k | 1,000
@@ -411,17 +431,6 @@ namespace Altaxo.Serialization.Origin
       throw new ApplicationException($"Variant contains {_type}, but expecting type Double");
     }
 
-    public readonly bool IsString => _type == VType.V_DOUBLE;
-    public readonly string? AsString()
-    {
-      if (_type == VType.V_STRING)
-      {
-        return _string;
-      }
-
-      throw new ApplicationException($"Variant contains {_type}, but expecting type String");
-    }
-
     public static implicit operator double(Variant f)
     {
       if (f._type == VType.V_DOUBLE)
@@ -430,6 +439,18 @@ namespace Altaxo.Serialization.Origin
       }
 
       throw new ApplicationException($"Variant contains {f._type}, but expecting type Double");
+    }
+
+    public readonly bool IsString => _type == VType.V_STRING;
+
+    public readonly string? AsString()
+    {
+      if (_type == VType.V_STRING)
+      {
+        return _string;
+      }
+
+      throw new ApplicationException($"Variant contains {_type}, but expecting type String");
     }
 
     public static implicit operator string?(Variant f)
@@ -814,11 +835,28 @@ namespace Altaxo.Serialization.Origin
     public Color XSideWallColor;
     public Color YSideWallColor;
 
-    public SurfaceColoration Surface;
-    public SurfaceColoration TopContour;
-    public SurfaceColoration BottomContour;
+    public SurfaceColoration Surface
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
 
-    public ColorMap ColorMap;
+    public SurfaceColoration TopContour
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
+    public SurfaceColoration BottomContour
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
+
+    public ColorMap ColorMap
+    {
+      get { return field ??= new(); }
+      set { field = value; }
+    }
   }
 
   public class PercentileProperties
@@ -1285,8 +1323,8 @@ namespace Altaxo.Serialization.Origin
     public double HLine;
 
     public bool IsWaterfall;
-    public int XOffset;
-    public int YOffset;
+    public double XOffset;
+    public double YOffset;
 
     public bool GridOnTop;
     public bool ExchangedAxes;
