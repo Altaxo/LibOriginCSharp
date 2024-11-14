@@ -67,6 +67,9 @@ namespace Altaxo.Serialization.Origin.Tests
 
       void TestFolder(DirectoryInfo folder)
       {
+        if (folder.Name == "$RECYCLE.BIN")
+          return;
+
         FileInfo[] opjFiles;
         try
         {
@@ -257,6 +260,115 @@ namespace Altaxo.Serialization.Origin.Tests
           Assert.Equal(0.31, sheet.ImaginaryPart(2, 0));
           Assert.Equal(0.32, sheet.ImaginaryPart(2, 1));
         }
+      }
+    }
+
+    [Fact]
+    public void TestWksDifferentNumericColumns()
+    {
+      var fileName = Path.Combine(TestFilePath, "WksDifferentNumericColumns.opj");
+      using var str = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+      var reader = new OriginAnyParser(str);
+
+      Assert.Single(reader.SpreadSheets);
+      var spread = reader.SpreadSheets[0];
+      Assert.Equal(10, spread.Columns.Count);
+
+      for (int i = 0; i < spread.Columns.Count; i++)
+      {
+        var c = spread.Columns[0];
+        Assert.Equal(0, c.BeginRow);
+        Assert.Equal(2, c.EndRow);
+      }
+      {
+        // Column A, mixed text and numeric
+        var c = spread.Columns[0];
+        Assert.Equal("A", c.Name);
+        Assert.True(c.Data[0].IsString);
+        Assert.Equal("Text", c.Data[0].AsString());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(1.5, c.Data[1].AsDouble());
+      }
+      {
+        // Column B (double)
+        var c = spread.Columns[1];
+        Assert.Equal("B", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1.5, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(10000, c.Data[1].AsDouble());
+      }
+      {
+        // Column C (float)
+        var c = spread.Columns[2];
+        Assert.Equal("C", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1.5, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(10000, c.Data[1].AsDouble());
+      }
+      {
+        // Column D (short)
+        var c = spread.Columns[3];
+        Assert.Equal("D", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(-1, c.Data[1].AsDouble());
+      }
+      {
+        // Column E (long)
+        var c = spread.Columns[4];
+        Assert.Equal("E", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(-1, c.Data[1].AsDouble());
+      }
+      {
+        // Column F (char)
+        var c = spread.Columns[5];
+        Assert.Equal("F", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(-1, c.Data[1].AsDouble());
+      }
+      {
+        // Column G (byte)
+        var c = spread.Columns[6];
+        Assert.Equal("G", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(255, c.Data[1].AsDouble());
+      }
+      {
+        // Column H (ushort)
+        var c = spread.Columns[7];
+        Assert.Equal("H", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(65535, c.Data[1].AsDouble());
+      }
+      {
+        // Column I (ulong)
+        var c = spread.Columns[8];
+        Assert.Equal("I", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(uint.MaxValue, c.Data[1].AsDouble());
+      }
+      {
+        // Column J (complex)
+        var c = spread.Columns[9];
+        Assert.Equal("J", c.Name);
+        Assert.True(c.Data[0].IsDouble);
+        Assert.Equal(1.5, c.Data[0].AsDouble());
+        Assert.True(c.Data[1].IsDouble);
+        Assert.Equal(-1.5, c.Data[1].AsDouble());
       }
     }
   }
