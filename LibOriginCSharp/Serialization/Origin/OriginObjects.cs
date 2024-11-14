@@ -496,6 +496,12 @@ namespace Altaxo.Serialization.Origin
     public int EndRow;
     public List<Variant> Data;
 
+    /// <summary>
+    /// The imaginary data. Is only not null if
+    /// the data are complex.
+    /// </summary>
+    public List<double>? ImaginaryData;
+
     public SpreadColumn(string name = "", int index = 0)
     {
       Name = name;

@@ -369,6 +369,9 @@ namespace Altaxo.Serialization.Origin.Tests
         Assert.Equal(1.5, c.Data[0].AsDouble());
         Assert.True(c.Data[1].IsDouble);
         Assert.Equal(-1.5, c.Data[1].AsDouble());
+        Assert.NotNull(c.ImaginaryData);
+        Assert.Equal(0.5, c.ImaginaryData[0]);
+        Assert.Equal(3.5, c.ImaginaryData[1]);
       }
     }
   }

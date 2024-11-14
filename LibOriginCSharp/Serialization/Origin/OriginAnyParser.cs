@@ -1524,7 +1524,12 @@ namespace Altaxo.Serialization.Origin
         LogPrint($"n. of rows = {nr}\n\n");
 
         SpreadSheets[spread].MaxRows = Math.Max(SpreadSheets[spread].MaxRows, nr);
-        //stmp = new StringReader(col_data);
+
+        if (valueSize == 16 && dataType == (int)ValueBinaryType.Complex)
+        {
+          SpreadSheets[spread].Columns[currentCol - 1].ImaginaryData = new List<double>();
+        }
+
         for (int i = 0; i < nr; ++i)
         {
           double value;
@@ -1537,6 +1542,7 @@ namespace Altaxo.Serialization.Origin
                 break;
               case ValueBinaryType.Complex:
                 value = BitConverter.ToDouble(colData, i * valueSize);
+                SpreadSheets[spread].Columns[currentCol - 1].ImaginaryData.Add(BitConverter.ToDouble(colData, i * valueSize + sizeof(double)));
                 break;
               case ValueBinaryType.Single:
                 value = BitConverter.ToSingle(colData, i * valueSize);
