@@ -378,6 +378,7 @@ namespace Altaxo.Serialization.Origin
 
     public enum VType
     {
+      V_Empty,
       V_DOUBLE,
       V_STRING
     };
@@ -398,6 +399,7 @@ namespace Altaxo.Serialization.Origin
     public Variant(string s)
     {
       _string = s;
+      _double = double.NaN;
       _type = VType.V_STRING;
     }
 
@@ -407,6 +409,7 @@ namespace Altaxo.Serialization.Origin
       {
         _type = VType.V_STRING;
         _string = s;
+        _double = double.NaN;
       }
       else if (o is double d)
       {
@@ -419,7 +422,10 @@ namespace Altaxo.Serialization.Origin
       }
     }
 
+    public readonly bool IsEmpty => _type == VType.V_Empty;
+
     public readonly bool IsDouble => _type == VType.V_DOUBLE;
+    public readonly bool IsDoubleOrNaN => _type == VType.V_DOUBLE || string.IsNullOrEmpty(_string);
 
     public readonly double AsDouble()
     {
@@ -427,8 +433,14 @@ namespace Altaxo.Serialization.Origin
       {
         return _double;
       }
-
-      throw new ApplicationException($"Variant contains {_type}, but expecting type Double");
+      else if (_type == VType.V_Empty || string.IsNullOrEmpty(_string))
+      {
+        return double.NaN;
+      }
+      else
+      {
+        throw new ApplicationException($"Variant contains {_type}, but expecting type Double");
+      }
     }
 
     public static implicit operator double(Variant f)
@@ -437,30 +449,48 @@ namespace Altaxo.Serialization.Origin
       {
         return f._double;
       }
-
-      throw new ApplicationException($"Variant contains {f._type}, but expecting type Double");
+      else if (f._type == VType.V_Empty)
+      {
+        return double.NaN;
+      }
+      else
+      {
+        throw new ApplicationException($"Variant contains {f._type}, but expecting type Double");
+      }
     }
 
     public readonly bool IsString => _type == VType.V_STRING;
 
-    public readonly string? AsString()
+    public readonly string AsString()
     {
       if (_type == VType.V_STRING)
       {
-        return _string;
+        return _string ?? string.Empty;
       }
-
-      throw new ApplicationException($"Variant contains {_type}, but expecting type String");
+      else if (_type == VType.V_Empty)
+      {
+        return string.Empty;
+      }
+      else
+      {
+        throw new ApplicationException($"Variant contains {_type}, but expecting type String");
+      }
     }
 
-    public static implicit operator string?(Variant f)
+    public static implicit operator string(Variant f)
     {
       if (f._type == VType.V_STRING)
       {
-        return f._string;
+        return f._string ?? string.Empty;
       }
-
-      throw new ApplicationException($"Variant contains {f._type}, but expecting type string");
+      else if (f._type == VType.V_Empty)
+      {
+        return string.Empty;
+      }
+      else
+      {
+        throw new ApplicationException($"Variant contains {f._type}, but expecting type String");
+      }
     }
   }
 
@@ -486,7 +516,16 @@ namespace Altaxo.Serialization.Origin
     public int DecimalPlaces;
     public NumericDisplayType NumericDisplayType;
     public string Command;
-    public string Comment;
+
+    /// <summary>Gets or sets the long name of the column.</summary>
+    public string LongName { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the units of the column.</summary>
+    public string Units { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the comments of the column.</summary>
+    public string Comments { get; set; } = string.Empty;
+
     public int Width;
     public int Index;
     public int ColIndex;

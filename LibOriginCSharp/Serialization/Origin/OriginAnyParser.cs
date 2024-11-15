@@ -2681,7 +2681,12 @@ namespace Altaxo.Serialization.Origin
           }
           if (cvedtsz > 0)
           {
-            SpreadSheets[_ispread].Columns[col_index].Comment = _encoding.GetString(cvedt, 0, cvedt.Length).TrimEnd('\0');
+            // note that longName, units and comments seems to be encoded in the following string, separated by 0xD, 0xA
+            var allComments = _encoding.GetString(cvedt, 0, cvedt.Length).TrimEnd('\0');
+            var parts = allComments.Split(['\n'], StringSplitOptions.None);
+            if (parts.Length > 0) SpreadSheets[_ispread].Columns[col_index].LongName = parts[0].TrimEnd();
+            if (parts.Length > 1) SpreadSheets[_ispread].Columns[col_index].Units = parts[1].TrimEnd();
+            if (parts.Length > 2) SpreadSheets[_ispread].Columns[col_index].Comments = parts[2].TrimEnd();
           }
           // TODO: check that spreadsheet columns are stored in proper order
           // header.Add(spreadSheets[ispread].columns[col_index]);
@@ -2809,7 +2814,12 @@ namespace Altaxo.Serialization.Origin
             }
             if (cvedtsz > 0)
             {
-              Excels[_iexcel].Sheets[isheet].Columns[col_index].Comment = _encoding.GetString(cvedt, 0, cvedt.Length).TrimEnd('\0');
+              // note that longName, units and comments seems to be encoded in the following string, separated by 0xD, 0xA
+              var allComments = _encoding.GetString(cvedt, 0, cvedt.Length).TrimEnd('\0');
+              var parts = allComments.Split(new char['\n']);
+              if (parts.Length > 0) Excels[_iexcel].Sheets[isheet].Columns[col_index].LongName = parts[0].TrimEnd();
+              if (parts.Length > 1) Excels[_iexcel].Sheets[isheet].Columns[col_index].Units = parts[1].TrimEnd();
+              if (parts.Length > 2) Excels[_iexcel].Sheets[isheet].Columns[col_index].Comments = parts[2].TrimEnd();
             }
           }
         }
