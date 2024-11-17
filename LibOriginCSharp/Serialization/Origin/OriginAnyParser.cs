@@ -1525,120 +1525,105 @@ namespace Altaxo.Serialization.Origin
 
         SpreadSheets[spread].MaxRows = Math.Max(SpreadSheets[spread].MaxRows, nr);
 
-        if (valueSize == 16 && dataType == (int)ValueBinaryType.Complex)
+        // Working hypothesis:
+        // dataType & 0x800 != 0 => Integer data type (4 byte, 2 byte, or 1 byte)
+        // dataType & 0x100 != 0 => Combined text and number
+        // dataType & 0x200 != 0 => Complex
+        // dataType & 0x002 != 0 => Single instead of double (if floating point number) or short instead of int (if integer type)
+        // dataType & 0x020 != 0 => Byte instead of int (if integer type)
+        // dataType == 0x6021 => Text
+
+        var dataTypeToDeserialize = GetDataTypeToDeserialize(dataType, dataTypeU, valueSize);
+        newSpreadColumn.DeserializedDataType = dataTypeToDeserialize;
+        switch (dataTypeToDeserialize)
         {
-          SpreadSheets[spread].Columns[currentCol - 1].ImaginaryData = new List<double>();
+          case DeserializedDataType.UInt32: // ***** UInt32 *****
+            for (int i = 0, j = 0; i < nr; ++i, j += sizeof(UInt32))
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToUInt32(colData, j)));
+            }
+            break;
+          case DeserializedDataType.Int32: // ***** Int32 *****
+            for (int i = 0, j = 0; i < nr; ++i, j += sizeof(Int32))
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToInt32(colData, j)));
+            }
+            break;
+          case DeserializedDataType.UInt16: // ***** UInt16 *****
+            for (int i = 0, j = 0; i < nr; ++i, j += sizeof(UInt16))
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToUInt16(colData, j)));
+            }
+            break;
+          case DeserializedDataType.Int16: // ***** Int16 *****
+            for (int i = 0, j = 0; i < nr; ++i, j += sizeof(Int16))
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToInt16(colData, j)));
+            }
+            break;
+          case DeserializedDataType.Byte: // ***** byte *****
+            for (int i = 0; i < nr; ++i)
+            {
+              newSpreadColumn.Data.Add(new Variant((double)colData[i]));
+            }
+            break;
+          case DeserializedDataType.SByte: // ***** sbyte *****
+            for (int i = 0; i < nr; ++i)
+            {
+              newSpreadColumn.Data.Add(new Variant((double)(sbyte)colData[i]));
+            }
+            break;
+          case DeserializedDataType.TextAndNumber: // ***** Text and Number *****
+            for (int i = 0, j = 0; i < nr; ++i, j += valueSize)
+            {
+              if (colData[j] == 1) // Text
+              {
+                string svaltmp = _encoding.GetString(colData, j + 2, valueSize - 2).TrimEnd('\0');
+                newSpreadColumn.Data.Add(new Variant(svaltmp));
+              }
+              else // Number
+              {
+                newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToDouble(colData, j + 2)));
+              }
+            }
+            break;
+          case DeserializedDataType.Text: // ***** Text *****
+            for (int i = 0, j = 0; i < nr; ++i, j += valueSize)
+            {
+              string svaltmp = GetNullTerminatedString(colData, j, valueSize);
+              newSpreadColumn.Data.Add(new Variant(svaltmp));
+            }
+            break;
+          case DeserializedDataType.Single: // ***** Single ***** 
+            for (int i = 0, j = 0; i < nr; ++i, j += sizeof(Single))
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToSingle(colData, j)));
+            }
+            break;
+          case DeserializedDataType.Double: // ***** Double ***** 
+            for (int i = 0, j = 0; i < nr; ++i, j += sizeof(Double))
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToDouble(colData, j)));
+            }
+            break;
+          case DeserializedDataType.Double10: // ***** Double10 ***** 
+            for (int i = 0, j = 0; i < nr; ++i, j += valueSize)
+            {
+              newSpreadColumn.Data.Add(new Variant((double)BitConverter.ToDouble(colData, j)));
+            }
+            break;
+          case DeserializedDataType.Complex: // ***** ComplexDouble *****
+            newSpreadColumn.ImaginaryData ??= [];
+            for (int i = 0, j = 0; i < nr; i++, j += valueSize)
+            {
+              newSpreadColumn.Data.Add(new Variant(BitConverter.ToDouble(colData, j)));
+              newSpreadColumn.ImaginaryData.Add(new Variant(BitConverter.ToDouble(colData, j + sizeof(double))));
+            }
+            break;
+          default:
+            throw new NotImplementedException($"The combination of data type 0x{dataType:X} and valueSize={valueSize} is not implemented. Column name: {newSpreadColumn.Name}, spreadsheet name: {SpreadSheets[spread].Name}.");
         }
 
-        for (int i = 0; i < nr; ++i)
-        {
-          double value;
-          if (valueSize <= 8 || (valueSize == 16 && dataType == (int)ValueBinaryType.Complex)) // Numeric, Time, Date, Month, Day
-          {
-            switch ((ValueBinaryType)dataType)
-            {
-              case ValueBinaryType.Double:
-                value = BitConverter.ToDouble(colData, i * valueSize);
-                break;
-              case ValueBinaryType.Complex:
-                value = BitConverter.ToDouble(colData, i * valueSize);
-                SpreadSheets[spread].Columns[currentCol - 1].ImaginaryData.Add(BitConverter.ToDouble(colData, i * valueSize + sizeof(double)));
-                break;
-              case ValueBinaryType.Single:
-                value = BitConverter.ToSingle(colData, i * valueSize);
-                break;
-              case ValueBinaryType.Int32:
-                value = dataTypeU == 8 ? BitConverter.ToUInt32(colData, i * valueSize) : BitConverter.ToInt32(colData, i * valueSize);
-                break;
-              case ValueBinaryType.Short:
-                value = dataTypeU == 8 ? BitConverter.ToUInt16(colData, i * valueSize) : BitConverter.ToInt16(colData, i * valueSize);
-                break;
-              case ValueBinaryType.Byte:
-                value = dataTypeU == 8 ? colData[i * valueSize] : (sbyte)colData[i * valueSize];
-                break;
-              default:
-                {
-                  if (valueSize == sizeof(double))
-                    value = BitConverter.ToDouble(colData, i * valueSize);
-                  else
-                    throw new NotImplementedException($"The data type 0x{dataType:X} is not implemented here.");
-                }
-                break;
-            }
-            if ((i < 5) || (i > (nr - 5)))
-            {
-              LogPrint($"{value} ");
-            }
-            else if (i == 5)
-            {
-              LogPrint("... ");
-            }
-            SpreadSheets[spread].Columns[currentCol - 1].Data.Add(new Variant(value));
-          }
-          else if ((dataType & 0x100) == 0x100) // Text&Numeric
-          {
-            byte c = colData[i * valueSize];
-            if (c != 1) // value
-            {
-              value = BitConverter.ToDouble(colData, i * valueSize + 2);
-              if ((i < 5) || (i > (nr - 5)))
-              {
-                LogPrint($"{value} ");
-              }
-              else if (i == 5)
-              {
-                LogPrint("... ");
-              }
-              SpreadSheets[spread].Columns[currentCol - 1].Data.Add(new Variant(value));
-            }
-            else // text
-            {
-              string svaltmp = _encoding.GetString(colData, i * valueSize + 2, valueSize - 2).TrimEnd('\0');
-              // TODO: check if this test is still needed
-#if NETFRAMEWORK
-              if (svaltmp.Contains("\u000E"))
-#else
-              if (svaltmp.Contains((char)0x0E))
-#endif
-              { // try find non-printable symbol - garbage test
-                svaltmp = string.Empty;
-                LogPrint($"Non printable symbol found, place 1 for i={i}");
-              }
-              if ((i < 5) || (i > (nr - 5)))
-              {
-                LogPrint($"\"{svaltmp}\" ");
-              }
-              else if (i == 5)
-              {
-                LogPrint("... ");
-              }
-              SpreadSheets[spread].Columns[currentCol - 1].Data.Add(new Variant(svaltmp));
-            }
-          }
-          else // text
-          {
-            string svaltmp = _encoding.GetString(colData, i * valueSize, valueSize).TrimEnd('\0');
-            // TODO: check if this test is still needed
-#if NETFRAMEWORK
-            if (svaltmp.Contains("\u000E"))
-#else
-            if (svaltmp.Contains((char)0x0E))
-#endif
-            { // try find non-printable symbol - garbage test
-              svaltmp = string.Empty;
-              LogPrint($"Non printable symbol found, place 2 for i={i}");
-            }
-            if ((i < 5) || (i > (nr - 5)))
-            {
-              Console.Write($"\"{svaltmp}\" ");
-            }
-            else if (i == 5)
-            {
-              Console.Write("... ");
-            }
-            SpreadSheets[spread].Columns[currentCol - 1].Data.Add(new Variant(svaltmp));
-          }
-        }
         LogPrint("\n\n");
         Datasets.Add(SpreadSheets[spread].Columns[^1]);
       }
@@ -1663,21 +1648,23 @@ namespace Altaxo.Serialization.Origin
       var size = colDataSize / valueSize;
       bool logValues = true;
 
-      switch ((ValueBinaryType)dataType)
+      var dataTypeToDeserialize = GetDataTypeToDeserialize(dataType, dataTypeU, valueSize);
+
+      switch (dataTypeToDeserialize)
       {
-        case ValueBinaryType.Double: // double
+        case DeserializedDataType.Double: // double
           for (int i = 0; i < size; ++i)
           {
             Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToDouble(colData, i * sizeof(double)));
           }
           break;
-        case ValueBinaryType.Single: // float
+        case DeserializedDataType.Single: // float
           for (int i = 0; i < size; ++i)
           {
             Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToSingle(colData, i * sizeof(float)));
           }
           break;
-        case ValueBinaryType.Complex: // complex (2xdouble)
+        case DeserializedDataType.Complex: // complex (2xdouble)
           {
             for (int i = 0; i < size; ++i)
             {
@@ -1686,43 +1673,40 @@ namespace Altaxo.Serialization.Origin
             }
           }
           break;
-        case ValueBinaryType.Int32: // int
-          if (dataTypeU == 8) // unsigned
-          {
-            for (int i = 0; i < size; ++i)
-            {
-              Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToUInt32(colData, i * sizeof(UInt32)));
-            }
-          }
-          else
-          {
-            for (int i = 0; i < size; ++i)
-            {
-              Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToInt32(colData, i * sizeof(Int32)));
-            }
-
-          }
-          break;
-        case ValueBinaryType.Short: // short
-          if (dataTypeU == 8) // unsigned
-          {
-            for (int i = 0; i < size; ++i)
-            {
-              Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToUInt16(colData, i * sizeof(UInt16)));
-            }
-          }
-          else
-          {
-            for (int i = 0; i < size; ++i)
-            {
-              Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToInt16(colData, i * sizeof(Int16)));
-            }
-          }
-          break;
-        case ValueBinaryType.Byte: // char
+        case DeserializedDataType.Int32: // int
           for (int i = 0; i < size; ++i)
           {
-            Matrixes[(int)mIndex].Sheets[^1].Data.Add(colData[i]);
+            Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToInt32(colData, i * sizeof(Int32)));
+          }
+          break;
+        case DeserializedDataType.UInt32:
+          for (int i = 0; i < size; ++i)
+          {
+            Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToUInt32(colData, i * sizeof(UInt32)));
+          }
+          break;
+        case DeserializedDataType.Int16: // short
+          for (int i = 0; i < size; ++i)
+          {
+            Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToInt16(colData, i * sizeof(Int16)));
+          }
+          break;
+        case DeserializedDataType.UInt16:
+          for (int i = 0; i < size; ++i)
+          {
+            Matrixes[mIndex].Sheets[^1].Data.Add(BitConverter.ToUInt16(colData, i * sizeof(UInt16)));
+          }
+          break;
+        case DeserializedDataType.SByte: // 
+          for (int i = 0; i < size; ++i)
+          {
+            Matrixes[mIndex].Sheets[^1].Data.Add((sbyte)colData[i]);
+          }
+          break;
+        case DeserializedDataType.Byte: // char
+          for (int i = 0; i < size; ++i)
+          {
+            Matrixes[mIndex].Sheets[^1].Data.Add(colData[i]);
           }
           break;
         default:
@@ -2597,11 +2581,20 @@ namespace Altaxo.Serialization.Origin
           SpreadColumnType type;
           switch (c)
           {
+            case 0:
+              type = SpreadColumnType.Y;
+              break;
+            case 1:
+              type = SpreadColumnType.Ignore;
+              break;
+            case 2:
+              type = SpreadColumnType.YErr;
+              break;
             case 3:
               type = SpreadColumnType.X;
               break;
-            case 0:
-              type = SpreadColumnType.Y;
+            case 4:
+              type = SpreadColumnType.Label;
               break;
             case 5:
               type = SpreadColumnType.Z;
@@ -2609,14 +2602,14 @@ namespace Altaxo.Serialization.Origin
             case 6:
               type = SpreadColumnType.XErr;
               break;
-            case 2:
-              type = SpreadColumnType.YErr;
+            case 7:
+              type = SpreadColumnType.Group;
               break;
-            case 4:
-              type = SpreadColumnType.Label;
+            case 8:
+              type = SpreadColumnType.Subject;
               break;
             default:
-              type = SpreadColumnType.NONE;
+              type = SpreadColumnType.Ignore;
               break;
           }
           SpreadSheets[_ispread].Columns[col_index].ColumnType = type;
@@ -2683,7 +2676,7 @@ namespace Altaxo.Serialization.Origin
           {
             // note that longName, units and comments seems to be encoded in the following string, separated by 0xD, 0xA
             var allComments = _encoding.GetString(cvedt, 0, cvedt.Length).TrimEnd('\0');
-            var parts = allComments.Split(['\n'], StringSplitOptions.None);
+            var parts = allComments.Split(['\n'], 3, StringSplitOptions.None);
             if (parts.Length > 0) SpreadSheets[_ispread].Columns[col_index].LongName = parts[0].TrimEnd();
             if (parts.Length > 1) SpreadSheets[_ispread].Columns[col_index].Units = parts[1].TrimEnd();
             if (parts.Length > 2) SpreadSheets[_ispread].Columns[col_index].Comments = parts[2].TrimEnd();
@@ -2731,11 +2724,20 @@ namespace Altaxo.Serialization.Origin
             SpreadColumnType type;
             switch (c)
             {
+              case 0:
+                type = SpreadColumnType.Y;
+                break;
+              case 1:
+                type = SpreadColumnType.Ignore;
+                break;
+              case 2:
+                type = SpreadColumnType.YErr;
+                break;
               case 3:
                 type = SpreadColumnType.X;
                 break;
-              case 0:
-                type = SpreadColumnType.Y;
+              case 4:
+                type = SpreadColumnType.Label;
                 break;
               case 5:
                 type = SpreadColumnType.Z;
@@ -2743,14 +2745,14 @@ namespace Altaxo.Serialization.Origin
               case 6:
                 type = SpreadColumnType.XErr;
                 break;
-              case 2:
-                type = SpreadColumnType.YErr;
+              case 7:
+                type = SpreadColumnType.Group;
                 break;
-              case 4:
-                type = SpreadColumnType.Label;
+              case 8:
+                type = SpreadColumnType.Subject;
                 break;
               default:
-                type = SpreadColumnType.NONE;
+                type = SpreadColumnType.Ignore;
                 break;
             }
             Excels[_iexcel].Sheets[isheet].Columns[col_index].ColumnType = type;
@@ -3839,7 +3841,7 @@ namespace Altaxo.Serialization.Origin
         return new DateTime(1970, 1, 1);
 
       // 2440587.5 is julian date for the unixtime epoch
-      return new DateTime(1970, 1, 1).AddDays(jdt - 2440587).AddSeconds(0.5);
+      return new DateTime(1970, 1, 1).AddDays(jdt - 2440587);
     }
 
     #region From original file "originparser.cpp"
@@ -4197,6 +4199,19 @@ namespace Altaxo.Serialization.Origin
     }
 
     /// <summary>
+    /// Gets a null terminated string from a byte buffer.
+    /// </summary>
+    /// <param name="buffer">The byte buffer.</param>
+    /// <param name="start">The start index where to read from.</param>
+    /// <param name="maxLength">The maximum length of the string. This count includes the '\0' character.</param>
+    /// <returns></returns>
+    public string GetNullTerminatedString(byte[] buffer, int start, int maxLength)
+    {
+      var idx = Array.IndexOf<byte>(buffer, 0, start, maxLength);
+      return idx < 0 ? _encoding.GetString(buffer, start, maxLength) : _encoding.GetString(buffer, start, idx - start);
+    }
+
+    /// <summary>
     /// Reads a string line, and stops if the char is below 0x20.
     /// Afterwards, the stream cursor is placed on the character that has caused the stop.
     /// </summary>
@@ -4241,8 +4256,82 @@ namespace Altaxo.Serialization.Origin
       return stb.ToString();
     }
 
+
+
     #endregion
 
+    /// <summary>
+    /// Gets the type of data toe deserialize from dataType, dataTypeU and valueSize.
+    /// </summary>
+    /// <param name="dataType">Type of the data.</param>
+    /// <param name="dataTypeU">The data typeU.</param>
+    /// <param name="valueSize">Size of the value in bytes.</param>
+    /// <returns>The data type to deserialize.</returns>
+    /// <exception cref="System.NotImplementedException">The combination of data type 0x{dataType:X} and valueSize={valueSize} is not implemented. Column name: {newSpreadColumn.Name}, spreadsheet name: {SpreadSheets[spread].Name}.</exception>
+    public static DeserializedDataType GetDataTypeToDeserialize(int dataType, int dataTypeU, int valueSize)
+    {
+      if ((dataType & 0x0822) == 0x0800 && valueSize == 4) // INT32
+      {
+        if (dataTypeU == 8) // ***** UInt32 *****
+        {
+          return DeserializedDataType.UInt32;
+        }
+        else // ***** Int32 *****
+        {
+          return DeserializedDataType.Int32;
+        }
+      }
+      else if ((dataType & 0x0822) == 0x0802 && valueSize == 2) // ***** Int16 or UInt16 *****
+      {
+        if (dataTypeU == 8) // ***** UInt16 *****
+        {
+          return DeserializedDataType.UInt16;
+        }
+        else // ***** Int16 *****
+        {
+          return DeserializedDataType.Int16;
+        }
+      }
+      else if ((dataType & 0x0822) == 0x0820 && valueSize == 1) // ***** sbyte or byte *****
+      {
+        if (dataTypeU == 8) // ***** byte *****
+        {
+          return DeserializedDataType.Byte;
+        }
+        else // ***** sbyte *****
+        {
+          return DeserializedDataType.SByte;
+        }
+      }
+      else if ((dataType & 0x0120) == 0x0120 && valueSize >= 10) // ***** Text and Number *****
+      {
+        return DeserializedDataType.TextAndNumber;
+      }
+      else if ((dataType & 0x0120) == 0x0020) // ***** Text *****
+      {
+        return DeserializedDataType.Text;
+      }
+      else if ((dataType & 0x0822) == 0x0002 && valueSize == 4) // ***** Single ***** 
+      {
+        return DeserializedDataType.Single;
+      }
+      else if ((dataType & 0x0822) == 0x0000 && valueSize == 8) // ***** Double ***** 
+      {
+        return DeserializedDataType.Double;
+      }
+      else if ((dataType & 0x0822) == 0x0000 && valueSize == 10) // ***** Double10 ***** 
+      {
+        return DeserializedDataType.Double10;
+      }
+      else if ((dataType & 0x0822) == 0x0000 && valueSize == 16) // ***** ComplexDouble *****
+      {
+        return DeserializedDataType.Complex;
+      }
+      else
+      {
+        return DeserializedDataType.Unknown;
+      }
+    }
 
     [Conditional("GENERATE_CODE_FOR_LOG")]
     private void LogPrint(string message)
@@ -4257,8 +4346,6 @@ namespace Altaxo.Serialization.Origin
     {
       LogPrint(string.Format(message, args));
     }
-
-
   }
-
 }
+

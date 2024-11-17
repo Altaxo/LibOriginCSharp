@@ -177,6 +177,55 @@ namespace Altaxo.Serialization.Origin.Tests
     }
 
     [Fact]
+    public void TestDateTimeColumns()
+    {
+      var fileName = Path.Combine(TestFilePath, "DateTimeColumns.opj");
+      using var str = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+      var reader = new OriginAnyParser(str);
+
+      Assert.Single(reader.SpreadSheets);
+      Assert.Empty(reader.Matrixes);
+      Assert.Empty(reader.Excels);
+
+      var spreadSheet = reader.SpreadSheets[0];
+      Assert.Equal("Book1", spreadSheet.Name);
+      Assert.Equal(4, spreadSheet.Columns.Count);
+
+      var c = spreadSheet.Columns[0];
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(1, c.EndRow);
+      Assert.Equal(new TimeSpan(12, 34, 00), RoundToSecond(c.Data[0].AsTimeSpan().Value, 1));
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("Zeit HH:mm", c.Comments);
+
+      c = spreadSheet.Columns[1];
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(1, c.EndRow);
+      Assert.Equal(new DateTime(2031, 6, 27, 14, 19, 0), RoundToSecond(c.Data[0].AsDateTime().Value, 1));
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("Date MM/DD/YYYY HH:mm", c.Comments);
+
+      c = spreadSheet.Columns[2];
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(1, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("Month", c.Comments);
+      Assert.Equal(3, c.Data[0].AsDouble());
+
+      c = spreadSheet.Columns[3];
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(1, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("DayOfWeek\nMon", c.Comments);
+      Assert.Equal(5, c.Data[0].AsDouble());
+    }
+
+
+    [Fact]
     public void TestMatrix137x179()
     {
       var fileName = Path.Combine(TestFilePath, "Matrix137x179.opj");
@@ -502,8 +551,182 @@ namespace Altaxo.Serialization.Origin.Tests
       Assert.Equal("LN2", c.LongName);
       Assert.Equal("°C", c.Units);
       Assert.Equal("Kommentar2", c.Comments);
+    }
+
+    [Fact]
+    public void TestWksDifferentColumnTypes()
+    {
+      var fileName = Path.Combine(TestFilePath, "WksDifferentColumnTypes.opj");
+      using var str = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+      var reader = new OriginAnyParser(str);
+
+      Assert.Single(reader.SpreadSheets);
+      Assert.Empty(reader.Matrixes);
+      Assert.Empty(reader.Excels);
+
+      var spreadSheet = reader.SpreadSheets[0];
+      Assert.Equal("Book1", spreadSheet.Name);
+      Assert.Equal(12, spreadSheet.Columns.Count);
+
+      var c = spreadSheet.Columns[0];
+      Assert.Equal("A", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("T&N", c.Comments);
+      Assert.Equal(1, c.Data[0].AsDouble());
+      Assert.Equal("Text", c.Data[1].AsString());
+
+      c = spreadSheet.Columns[1];
+      Assert.Equal("B", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("T&N", c.Comments);
+      Assert.Equal(1, c.Data[0].AsDouble());
+      Assert.Equal(2, c.Data[1].AsDouble());
+
+      c = spreadSheet.Columns[2];
+      Assert.Equal("C", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("T&N", c.Comments);
+      Assert.Equal(1.25, c.Data[0].AsDouble());
+      Assert.Equal(1.75, c.Data[1].AsDouble());
+
+      c = spreadSheet.Columns[3];
+      Assert.Equal("D", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("T&N", c.Comments);
+      Assert.Equal(1, c.Data[0].AsDouble());
+      Assert.Equal("Text", c.Data[1].AsString());
+
+      c = spreadSheet.Columns[4];
+      Assert.Equal("E", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("T&N", c.Comments);
+      Assert.Equal(1.25, c.Data[0].AsDouble());
+      Assert.Equal("Text", c.Data[1].AsString());
+
+      c = spreadSheet.Columns[5];
+      Assert.Equal("F", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("Text", c.Comments);
+      Assert.Equal("1.25", c.Data[0].AsString());
+      Assert.Equal("1.75", c.Data[1].AsString());
+
+      c = spreadSheet.Columns[6];
+      Assert.Equal("G", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("Time HH:MM", c.Comments);
+      Assert.Equal(new TimeSpan(20, 35, 0), RoundToSecond(c.Data[0].AsTimeSpan().Value, 2));
+      Assert.Equal(new TimeSpan(11, 13, 0), RoundToSecond(c.Data[1].AsTimeSpan().Value, 2));
+
+      c = spreadSheet.Columns[7];
+      Assert.Equal("H", c.Name);
+      Assert.Equal(0, c.BeginRow);
+      Assert.Equal(2, c.EndRow);
+      Assert.Empty(c.LongName);
+      Assert.Empty(c.Units);
+      Assert.Equal("Date MM/DD/YYYY HH:MM", c.Comments);
+      Assert.Equal(new DateTime(2021, 4, 27, 13, 14, 00), RoundToSecond(c.Data[0].AsDateTime().Value, 1));
+      Assert.Equal(new DateTime(2001, 9, 13, 1, 24, 00), RoundToSecond(c.Data[1].AsDateTime().Value, 1));
+    }
+
+    [Fact]
+    public void TestWksDifferentDiagramAssoc()
+    {
+      var fileName = Path.Combine(TestFilePath, "WksDifferentDiagramAssoc.opj");
+      using var str = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+      var reader = new OriginAnyParser(str);
+
+      Assert.Equal(4, reader.SpreadSheets.Count);
+      Assert.Empty(reader.Matrixes);
+      Assert.Empty(reader.Excels);
 
 
+
+      for (int s = 0; s < 4; ++s)
+      {
+        var spreadSheet = reader.SpreadSheets[s];
+        Assert.Equal(9, spreadSheet.Columns.Count);
+
+        for (int i = 0; i < 9; ++i)
+        {
+          var c = spreadSheet.Columns[i];
+          Assert.Equal(((char)(('A') + i)).ToString(), c.Name);
+          Assert.Equal(0, c.BeginRow);
+          Assert.Equal(2, c.EndRow);
+          Assert.Empty(c.LongName);
+          Assert.Empty(c.Units);
+          if (spreadSheet.Name == "Numbers")
+          {
+            Assert.Equal(1, c.Data[0].AsDouble());
+            Assert.Equal(2.5, c.Data[1].AsDouble());
+          }
+          else if (spreadSheet.Name == "TextAndNumber")
+          {
+            Assert.Equal("Hallo", c.Data[0].AsString());
+            Assert.Equal(1.25, c.Data[1].AsDouble());
+          }
+          else if (spreadSheet.Name == "Text")
+          {
+            Assert.Equal("Hallo", c.Data[0].AsString());
+            Assert.Equal("Ola", c.Data[1].AsString());
+          }
+          else if (spreadSheet.Name == "Dates")
+          {
+            Assert.Equal(new DateTime(1999, 3, 31, 7, 30, 00), RoundToSecond(c.Data[0].AsDateTime().Value, 1));
+            Assert.Equal(new DateTime(2020, 5, 5, 11, 11, 00), RoundToSecond(c.Data[1].AsDateTime().Value, 1));
+          }
+          else
+          {
+            Assert.Fail("Unexpected spreadsheet name");
+          }
+        }
+        Assert.Equal(SpreadColumnType.X, spreadSheet.Columns[0].ColumnType);
+        Assert.Equal("X", spreadSheet.Columns[0].Comments);
+
+        Assert.Equal(SpreadColumnType.Y, spreadSheet.Columns[1].ColumnType);
+        Assert.Equal("Y", spreadSheet.Columns[1].Comments);
+
+        Assert.Equal(SpreadColumnType.Z, spreadSheet.Columns[2].ColumnType);
+        Assert.Equal("Z", spreadSheet.Columns[2].Comments);
+
+        Assert.Equal(SpreadColumnType.XErr, spreadSheet.Columns[3].ColumnType);
+        Assert.Equal("xError", spreadSheet.Columns[3].Comments);
+
+        Assert.Equal(SpreadColumnType.YErr, spreadSheet.Columns[4].ColumnType);
+        Assert.Equal("yError", spreadSheet.Columns[4].Comments);
+
+        Assert.Equal(SpreadColumnType.Label, spreadSheet.Columns[5].ColumnType);
+        Assert.Equal("Label", spreadSheet.Columns[5].Comments);
+
+        Assert.Equal(SpreadColumnType.Ignore, spreadSheet.Columns[6].ColumnType);
+        Assert.Equal("Ignore", spreadSheet.Columns[6].Comments);
+
+        Assert.Equal(SpreadColumnType.Group, spreadSheet.Columns[7].ColumnType);
+        Assert.Equal("Group", spreadSheet.Columns[7].Comments);
+
+        Assert.Equal(SpreadColumnType.Subject, spreadSheet.Columns[8].ColumnType);
+        Assert.Equal("Subject", spreadSheet.Columns[8].Comments);
+      }
     }
 
     [Fact]
@@ -617,6 +840,98 @@ namespace Altaxo.Serialization.Origin.Tests
         Assert.Equal(0.5, c.ImaginaryData[0]);
         Assert.Equal(3.5, c.ImaginaryData[1]);
       }
+    }
+
+    [Fact]
+    public void TestWksThreeGroups()
+    {
+      var fileName = Path.Combine(TestFilePath, "WksThreeGroups.opj");
+      using var str = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+      var reader = new OriginAnyParser(str);
+
+      Assert.Equal(4, reader.SpreadSheets.Count);
+      Assert.Empty(reader.Matrixes);
+      Assert.Empty(reader.Excels);
+
+
+
+      for (int s = 0; s < 4; ++s)
+      {
+        var spreadSheet = reader.SpreadSheets[s];
+        Assert.Equal(6, spreadSheet.Columns.Count);
+
+        for (int i = 0; i < 6; ++i)
+        {
+          var c = spreadSheet.Columns[i];
+          Assert.Equal(((char)(('A') + i)).ToString(), c.Name);
+          Assert.Equal(0, c.BeginRow);
+
+          if (spreadSheet.Name != "TextAndNumber")
+            Assert.Equal(2, c.EndRow);
+          else
+            Assert.Equal(3, c.EndRow);
+
+          Assert.Empty(c.LongName);
+          Assert.Empty(c.Units);
+          Assert.Empty(c.Comments);
+          if (spreadSheet.Name == "Numbers")
+          {
+            Assert.Equal(1.5, c.Data[0].AsDouble());
+            Assert.Equal(7.25, c.Data[1].AsDouble());
+          }
+          else if (spreadSheet.Name == "TextAndNumber")
+          {
+            Assert.Equal(1 + (i % 2) * 3, c.Data[0].AsDouble());
+            Assert.Equal(2 + (i % 2) * 3, c.Data[1].AsDouble());
+            Assert.Equal(3 + (i % 2) * 3, c.Data[2].AsDouble());
+          }
+          else if (spreadSheet.Name == "Text")
+          {
+            Assert.Equal("Hallo", c.Data[0].AsString());
+            Assert.Equal("Ola", c.Data[1].AsString());
+          }
+          else if (spreadSheet.Name == "Dates")
+          {
+            Assert.Equal(new DateTime(2021, 1, 1, 0, 0, 0), RoundToSecond(c.Data[0].AsDateTime().Value, 1));
+            Assert.Equal(new DateTime(2033, 3, 3, 9, 9, 00), RoundToSecond(c.Data[1].AsDateTime().Value, 1));
+          }
+          else
+          {
+            Assert.Fail("Unexpected spreadsheet name");
+          }
+        }
+        Assert.Equal(SpreadColumnType.X, spreadSheet.Columns[0].ColumnType);
+
+        Assert.Equal(SpreadColumnType.Y, spreadSheet.Columns[1].ColumnType);
+
+        Assert.Equal(SpreadColumnType.X, spreadSheet.Columns[2].ColumnType);
+
+        Assert.Equal(SpreadColumnType.Y, spreadSheet.Columns[3].ColumnType);
+
+        Assert.Equal(SpreadColumnType.X, spreadSheet.Columns[4].ColumnType);
+
+        Assert.Equal(SpreadColumnType.Y, spreadSheet.Columns[5].ColumnType);
+      }
+    }
+
+    private static DateTime RoundToSecond(DateTime value, int decimals)
+    {
+      var ticksPerSecond = TimeSpan.TicksPerSecond;
+      long scale = 1;
+      for (int i = 0; i < decimals; ++i)
+        scale *= 10;
+
+      return new DateTime((ticksPerSecond / scale) * ((scale * value.Ticks + (ticksPerSecond / 2)) / ticksPerSecond), value.Kind);
+    }
+
+    private static TimeSpan RoundToSecond(TimeSpan value, int decimals)
+    {
+      var ticksPerSecond = TimeSpan.TicksPerSecond;
+      long scale = 1;
+      for (int i = 0; i < decimals; ++i)
+        scale *= 10;
+
+      return new TimeSpan((ticksPerSecond / scale) * ((scale * value.Ticks + (ticksPerSecond / 2)) / ticksPerSecond));
     }
   }
 }

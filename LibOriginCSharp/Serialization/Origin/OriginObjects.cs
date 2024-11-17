@@ -36,20 +36,53 @@ using Altaxo.Collections;
 
 namespace Altaxo.Serialization.Origin
 {
-  public enum ValueBinaryType
+  /// <summary>
+  /// Designates the data type that was used to deserialize the data.
+  /// This does not tell you how to interpret the data. For instance, double can
+  /// also interpreted as DateTime, Time, etc.
+  /// </summary>
+  public enum DeserializedDataType
   {
-    /// <summary>Double number (8 byte).</summary>
-    Double = 0x6001,
-    /// <summary>Single number (4 byte).</summary>
-    Single = 0x6003,
-    /// <summary>Complex double number (16 byte).</summary>
-    Complex = 0x6201, // 2xdouble
-    /// <summary>Integer (4 byte). Whether it is signed or unsigned is decided by another variable.</summary>
-    Int32 = 0x6801,
-    /// <summary>Integer number (2 byte). Whether it is signed or unsigned is decided by another variable.</summary>
-    Short = 0x6803,
-    /// <summary>Integer number (1 byte). Whether it is signed or unsigned is decided by another variable.</summary>
-    Byte = 0x6821,
+    /// <summary>
+    /// Value not set yet, or type is unknown.
+    /// </summary>
+    Unknown,
+
+    /// <summary>Text</summary>
+    Text,
+
+    /// <summary>Text and Double</summary>
+    TextAndNumber,
+
+    /// <summary>Complex (2 x double)</summary>
+    Complex,
+
+    /// <summary>Double (8 byte)</summary>
+    Double,
+
+    /// <summary>Double (10 byte)</summary>
+    Double10,
+
+    /// <summary>Single (4 byte)</summary>
+    Single,
+
+    /// <summary>Signed int (4 byte)</summary>
+    Int32,
+
+    /// <summary>Unsigned int (4 byte)</summary>
+    UInt32,
+
+    /// <summary>Signed int (2 byte)</summary>
+    Int16,
+
+    /// <summary>Unsigned int (2 byte)</summary>
+    UInt16,
+
+    /// <summary>Signed int (1 byte)</summary>
+    SByte,
+
+    /// <summary>Unsigned int (1 byte)</summary>
+    Byte,
   };
 
 
@@ -459,6 +492,40 @@ namespace Altaxo.Serialization.Origin
       }
     }
 
+    public readonly DateTime? AsDateTime()
+    {
+      var refDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+      if (_type == VType.V_DOUBLE)
+      {
+        return refDate.AddDays(_double - 2440587);
+      }
+      else if (_type == VType.V_Empty || string.IsNullOrEmpty(_string))
+      {
+        return null;
+      }
+      else
+      {
+        throw new ApplicationException($"Variant contains {_type}, but expecting type Double");
+      }
+    }
+
+    public readonly TimeSpan? AsTimeSpan()
+    {
+      if (_type == VType.V_DOUBLE)
+      {
+        return TimeSpan.FromDays(_double);
+      }
+      else if (_type == VType.V_Empty || string.IsNullOrEmpty(_string))
+      {
+        return null;
+      }
+      else
+      {
+        throw new ApplicationException($"Variant contains {_type}, but expecting type Double");
+      }
+    }
+
+
     public readonly bool IsString => _type == VType.V_STRING;
 
     public readonly string AsString()
@@ -502,7 +569,9 @@ namespace Altaxo.Serialization.Origin
     XErr,
     YErr,
     Label,
-    NONE
+    Ignore,
+    Group,
+    Subject,
   };
 
   public class SpreadColumn
@@ -516,6 +585,13 @@ namespace Altaxo.Serialization.Origin
     public int DecimalPlaces;
     public NumericDisplayType NumericDisplayType;
     public string Command;
+
+    /// <summary>
+    /// Designates the data type that was used to deserialize the data.
+    /// This does not tell you how to interpret the data. For instance, double can
+    /// also interpreted as DateTime, Time, etc.
+    /// </summary>
+    public DeserializedDataType DeserializedDataType { get; set; }
 
     /// <summary>Gets or sets the long name of the column.</summary>
     public string LongName { get; set; } = string.Empty;
