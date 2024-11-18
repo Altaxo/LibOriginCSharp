@@ -102,7 +102,7 @@ namespace Altaxo.Serialization.Origin.Tests
           listOfCorruptedFiles.Add((file, ex));
           return;
         }
-        if (version.FileVersion >= 400)
+        if (version.FileVersion >= 200)
         {
           try
           {
@@ -128,8 +128,15 @@ namespace Altaxo.Serialization.Origin.Tests
         while (null != (line = fr.ReadLine()))
         {
           line = line.Trim();
-          if (!string.IsNullOrEmpty(line))
+          if (!string.IsNullOrEmpty(line) && line[0] != '#')
           {
+#if NETFRAMEWORK
+            if (!line.StartsWith(@"\\?\"))
+            {
+              line = @"\\?\" + line;
+            }
+#endif
+
             var file = new FileInfo(line.Trim().Trim('"'));
             if (file.Exists)
             {
