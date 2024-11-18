@@ -492,6 +492,63 @@ namespace Altaxo.Serialization.Origin.Tests
       Assert.Empty(c.Comments);
     }
 
+    [Fact]
+    public void TestRepresentationOfNaN()
+    {
+      var fileName = Path.Combine(TestFilePath, "RepresentationOfNaN.opj");
+      using var str = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+      var reader = new OriginAnyParser(str);
+
+      Assert.Single(reader.SpreadSheets);
+      Assert.Empty(reader.Matrixes);
+      Assert.Empty(reader.Excels);
+
+      var spreadSheet = reader.SpreadSheets[0];
+      Assert.Equal("Book1", spreadSheet.Name);
+      Assert.Equal(9, spreadSheet.Columns.Count);
+
+      for (int ic = 0; ic < 9; ++ic)
+      {
+
+        var c = spreadSheet.Columns[ic];
+        Assert.Equal(0, c.BeginRow);
+        Assert.Equal(3, c.EndRow);
+        Assert.Equal(1, c.Data[0].AsDouble());
+        Assert.Equal(3, c.Data[2].AsDouble());
+        Assert.Empty(c.LongName);
+        Assert.Empty(c.Units);
+
+
+        var expectedComment = ic switch
+        {
+          0 => "Double",
+          1 => "Single",
+          2 => "Int16",
+          3 => "Int32",
+          4 => "SByte",
+          5 => "Byte",
+          6 => "UInt16",
+          7 => "UInt32",
+          8 => "Complex",
+          _ => throw new NotImplementedException(),
+        };
+        Assert.Equal(expectedComment, c.Comments);
+
+
+        if (ic == 0 || ic == 8)
+          Assert.True(double.IsNaN(c.Data[1].AsDouble()));
+        else
+          Assert.Equal(0, c.Data[1].AsDouble());
+
+        if (ic == 8)
+        {
+          Assert.NotNull(c.ImaginaryData);
+          Assert.Equal(0, c.ImaginaryData[0]);
+          Assert.Equal(0, c.ImaginaryData[2]);
+        }
+      }
+    }
+
 
     [Fact]
     public void TestTwoWorksheets()
