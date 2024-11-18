@@ -93,29 +93,23 @@ namespace Altaxo.Serialization.Origin.Tests
       {
         using var str = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
         (int FileVersion, int NewFileVersion, int BuildVersion, bool IsOpjuFile, string? Error) version;
+        version = OriginAnyParser.ReadFileVersion(str);
+        if (!string.IsNullOrEmpty(version.Error))
+        {
+          listOfCorruptedFiles.Add((file, new Exception(version.Error)));
+          return;
+        }
         try
         {
-          version = OriginAnyParser.ReadFileVersion(str);
+          var reader = new OriginAnyParser(str);
+        }
+        catch (EndOfStreamException ex)
+        {
+          listOfCorruptedFiles.Add((file, ex));
         }
         catch (Exception ex)
         {
-          listOfCorruptedFiles.Add((file, ex));
-          return;
-        }
-        if (version.FileVersion >= 200)
-        {
-          try
-          {
-            var reader = new OriginAnyParser(str);
-          }
-          catch (EndOfStreamException ex)
-          {
-            listOfCorruptedFiles.Add((file, ex));
-          }
-          catch (Exception ex)
-          {
-            listOfFailedFiles.Add((file, ex));
-          }
+          listOfFailedFiles.Add((file, ex));
         }
       }
 
